@@ -25,8 +25,10 @@ if uploaded_file is not None:
             # Processa o CSV
             new_order = ['Data','Valor', 'Parcela', 'Estabelecimento', 'Portador']
             df = df[new_order]
+            df = df[df["Estabelecimento"] != "Pagamento de fatura"]
+
             df.loc[:, 'Valor'] = df.Valor.str.strip()
-            df.loc[:, 'Valor'] = df.Valor.str.removeprefix("R$ '")
+            df.loc[:, 'Valor'] = df.Valor.str.removeprefix("R$ ")
             df.loc[:, 'Valor'] = df.Valor.str.replace('.', ',')
             # Convertendo a coluna de data para o formato datetime
             df['Data'] = pd.to_datetime(df['Data'], format='%d/%m/%Y')
