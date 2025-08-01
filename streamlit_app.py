@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import openpyxl
+from io import BytesIO
 
 # Função para processar o arquivo CSV
 def processar_csv_streamlit(df):
@@ -17,41 +17,51 @@ uploaded_file = st.file_uploader("Faça upload de um arquivo CSV", type=["csv"])
 if uploaded_file is not None:
     try:
         # Lê o arquivo CSV
-        df = pd.read_csv(uploaded_file,sep=";")
-        
+        df = pd.read_csv(uploaded_file, sep=";")
+
         if 'Portador' not in df.columns:
             st.error("O arquivo não contém a coluna 'Portador'.")
         else:
-            # Processa o CSV
-            new_order = ['Data','Valor', 'Parcela', 'Estabelecimento', 'Portador']
+            # Reordena as colunas
+            new_order = ['Data', 'Valor', 'Parcela', 'Estabelecimento', 'Portador']
             df = df[new_order]
+
+            # Remove linhas indesejadas
             df = df[df["Estabelecimento"] != "Pagamento de fatura"]
+
+            # Limpa e converte os valores da coluna 'Valor'
+            df['Valor'] = (
+                df['Valor']
+                .astype(str)
+                .str.strip()
+                .str.replace("R$", "", regex=False)
+                .str.replace(".", "", regex=False)
+                .str.replace(",", ".", regex=False)
+            )
             df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce')
 
-            df.loc[:, 'Valor'] = df.Valor.str.strip()
-            df.loc[:, 'Valor'] = df.Valor.str.removeprefix("R$ ")
-            df.loc[:, 'Valor'] = df.Valor.str.replace('.', ',')
-            # Convertendo a coluna de data para o formato datetime
-            df['Data'] = pd.to_datetime(df['Data'], format='%d/%m/%Y')
+            # Converte a coluna de data para datetime
+            df['Data'] = pd.to_datetime(df['Data'], format='%d/%m/%Y', errors='coerce')
 
-            # Ordenando o DataFrame pela coluna de data
-            df = df.sort_values(by='Data')
+            # Ordena e reseta índice
+            df = df.sort_values(by='Data').reset_index(drop=True)
 
-            # Reseta o índice após a ordenação (opcional)
-            df = df.reset_index(drop=True)
+            # Cria os DataFrames por portador
             abas = processar_csv_streamlit(df)
-            
-            # Botão para baixar o arquivo Excel
-            with pd.ExcelWriter("saida_streamlit.xlsx", engine='openpyxl') as writer:
+
+            # Gera o Excel em memória
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 for aba, dados in abas.items():
                     dados.to_excel(writer, sheet_name=aba, index=False)
-            
-            with open("saida_streamlit.xlsx", "rb") as file:
-                st.download_button(
-                    label="Baixar arquivo Excel",
-                    data=file,
-                    file_name="portadores_divididos.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+            output.seek(0)
+
+            # Botão para download
+            st.download_button(
+                label="📥 Baixar arquivo Excel",
+                data=output,
+                file_name="portadores_divididos.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
     except Exception as e:
         st.error(f"Ocorreu um erro: {e}")
