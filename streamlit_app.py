@@ -26,6 +26,7 @@ if uploaded_file is not None:
             new_order = ['Data','Valor', 'Parcela', 'Estabelecimento', 'Portador']
             df = df[new_order]
             df = df[df["Estabelecimento"] != "Pagamento de fatura"]
+            df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce')
 
             df.loc[:, 'Valor'] = df.Valor.str.strip()
             df.loc[:, 'Valor'] = df.Valor.str.removeprefix("R$ ")
